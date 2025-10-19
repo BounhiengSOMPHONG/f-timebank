@@ -61,7 +61,7 @@ export function VerificationView() {
   const [isLoading, setIsLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [search, setSearch] = useState("")
-  const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "approved" | "rejected">("all")
+  const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "verified" | "rejected">("all")
   const [detailOpen, setDetailOpen] = useState(false)
   const [detailEntry, setDetailEntry] = useState<VerificationEntry | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
@@ -140,7 +140,17 @@ export function VerificationView() {
         (entry.email ?? "").toLowerCase().includes(query) ||
         (entry.phone ?? "").toLowerCase().includes(query)
 
-      const matchesStatus = statusFilter === "all" || entry.status === statusFilter
+      // normalize some common status names
+      const normalizedStatus = (entry.status || "").toString().toLowerCase()
+      const isVerified = ["verified", "approved", "confirmed"].includes(normalizedStatus)
+      const isPending = ["pending", "review", "under_review", "รอตรวจสอบ"].includes(normalizedStatus)
+      const isRejected = ["rejected", "reject", "declined", "denied", "rejects"].includes(normalizedStatus)
+      const matchesStatus =
+        statusFilter === "all" ||
+        (statusFilter === "verified" && isVerified) ||
+        (statusFilter === "pending" && isPending) ||
+        (statusFilter === "rejected" && isRejected) ||
+        normalizedStatus === statusFilter
 
       return matchesSearch && matchesStatus
     })
@@ -237,8 +247,8 @@ export function VerificationView() {
               รอตรวจสอบ
             </Button>
             <Button
-              variant={statusFilter === "approved" ? "default" : "outline"}
-              onClick={() => setStatusFilter("approved")}
+              variant={statusFilter === "verified" ? "default" : "outline"}
+              onClick={() => setStatusFilter("verified")}
             >
               อนุมัติแล้ว
             </Button>
@@ -314,42 +324,61 @@ export function VerificationView() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredEntries.map((entry) => (
-                  <TableRow key={entry.id}>
-                    <TableCell className="font-medium">{entry.id}</TableCell>
-                    <TableCell>
-                      <div className="flex flex-col">
-                        <span className="font-semibold">{`${entry.first_name} ${entry.last_name}`}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-sm">{entry.email}</TableCell>
-                    <TableCell className="text-sm">{entry.phone ?? "-"}</TableCell>
-                    <TableCell className="text-sm">{entry.national_id ?? "-"}</TableCell>
-                    <TableCell className="text-sm">{formatISODate(entry.dob)}</TableCell>
-                    <TableCell className="text-sm">{entry.household ?? "-"}</TableCell>
-                    <TableCell className="text-sm">
-                      {entry.skills && entry.skills.length > 0 ? (
-                        entry.skills.map((s, idx) => (
-                          <Badge key={idx} className="mr-1">{s}</Badge>
-                        ))
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={entry.status === "verified" ? "default" : entry.status === "pending" ? "secondary" : "destructive"}
-                      >
-                        {entry.status === "verified" ? "ยืนยันแล้ว" : entry.status === "pending" ? "รอตรวจสอบ" : "ถูกปฏิเสธ"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="flex justify-end gap-2">
-                      <Button size="sm" variant="ghost" onClick={() => openDetails(entry.id)}>
-                        รายละเอียด
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {filteredEntries.map((entry) => {
+                  const normalizedStatus = (entry.status || "").toString().toLowerCase()
+                  const isVerified = ["verified", "approved", "confirmed"].includes(normalizedStatus)
+                  const isPending = ["pending", "review", "under_review", "รอตรวจสอบ"].includes(normalizedStatus)
+                  const isRejected = ["rejected", "reject", "declined", "denied", "rejects"].includes(normalizedStatus)
+
+                  return (
+                    <TableRow key={entry.id}>
+                      <TableCell className="font-medium">{entry.id}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-col">
+                          <span className="font-semibold">{`${entry.first_name} ${entry.last_name}`}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-sm">{entry.email}</TableCell>
+                      <TableCell className="text-sm">{entry.phone ?? "-"}</TableCell>
+                      <TableCell className="text-sm">{entry.national_id ?? "-"}</TableCell>
+                      <TableCell className="text-sm">{formatISODate(entry.dob)}</TableCell>
+                      <TableCell className="text-sm">{entry.household ?? "-"}</TableCell>
+                      <TableCell className="text-sm">
+                        {entry.skills && entry.skills.length > 0 ? (
+                          entry.skills.map((s, idx) => (
+                            <Badge key={idx} className="mr-1">{s}</Badge>
+                          ))
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={
+                            isVerified
+                              ? "default"
+                              : isPending
+                                ? "secondary"
+                                : isRejected
+                                  ? "destructive"
+                                  : "outline"
+                          }
+                        >
+                          {isVerified ? "ยืนยันแล้ว" : isPending ? "รอตรวจสอบ" : isRejected ? "ถูกปฏิเสธ" : entry.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="flex justify-end gap-2">
+                        <Button
+                          size="sm"
+                          variant={isVerified ? "default" : isPending ? "secondary" : isRejected ? "destructive" : "ghost"}
+                          onClick={() => openDetails(entry.id)}
+                        >
+                          รายละเอียด
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
               </TableBody>
             </Table>
           )}
