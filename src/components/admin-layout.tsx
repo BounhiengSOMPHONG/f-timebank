@@ -73,6 +73,11 @@ export function AdminLayout({ children }: AdminLayoutProps) {
               >
                 <item.icon className="h-4 w-4" />
                 {item.name}
+                {item.href === '/ai-logs' && (
+                  <span className="ml-auto inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+                    AI
+                  </span>
+                )}
               </Link>
             )
           })}
