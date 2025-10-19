@@ -7,6 +7,7 @@ import { Clock, Users, HelpCircle, LinkIcon, CreditCard, Database, BarChart3, Be
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { useRouter } from 'next/navigation'
 
 interface AdminLayoutProps {
   children: ReactNode
@@ -25,6 +26,21 @@ const navigation = [
 
 export function AdminLayout({ children }: AdminLayoutProps) {
   const pathname = usePathname()
+  const router = useRouter()
+
+  const handleLogout = async () => {
+    try {
+      const res = await fetch('/api/auth/logout', { method: 'POST' })
+      // Optionally check server response for success
+      if (!res.ok) console.warn('Logout endpoint returned non-OK');
+    } catch (e) {
+      // ignore network errors; still redirect
+      console.error('Logout request failed', e)
+    }
+
+    // Force navigate to login page
+    router.push('/login')
+  }
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -79,6 +95,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
               <AvatarFallback className="bg-primary text-primary-foreground">A</AvatarFallback>
             </Avatar>
             <span className="text-sm font-medium">Admin</span>
+            <Button variant="ghost" onClick={handleLogout}>ออกจากระบบ</Button>
           </div>
         </header>
 
