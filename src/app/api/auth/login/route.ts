@@ -1,21 +1,68 @@
-import { sign } from 'jsonwebtoken';
 import { NextResponse } from 'next/server';
-import { setCookie } from 'cookies-next';
 
-// In a real app, use a secret from environment variables
-const JWT_SECRET = process.env.JWT_SECRET || 'this-is-a-super-secret-key';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
 export async function POST(request: Request) {
-  const { username, password } = await request.json();
+  try {
+    const body = await request.json();
+    const { identifier, password, remember } = body;
 
-  if (username === 'admin' && password === 'admin') {
-    const token = sign({ username }, JWT_SECRET, { expiresIn: '1h' });
+    // Call external API
+    const apiResponse = await fetch(`${API_BASE_URL}/api/auth/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ identifier, password, remember }),
+    });
 
-    const response = NextResponse.json({ success: true });
-    setCookie('auth_token', token, { req: request, res: response, httpOnly: true, secure: process.env.NODE_ENV === 'production' });
+    const data = await apiResponse.json();
+
+    if (!apiResponse.ok) {
+      return NextResponse.json(
+        { success: false, message: data.message || 'Invalid credentials' },
+        { status: apiResponse.status }
+      );
+    }
+
+    // Check if user is admin
+    if (data.user?.role !== 'admin') {
+      return NextResponse.json(
+        { success: false, message: 'Unauthorized: Admin access only' },
+        { status: 403 }
+      );
+    }
+
+    // Create response with tokens in cookies
+    const response = NextResponse.json({ 
+      success: true, 
+      user: data.user 
+    });
+
+    // Set access token cookie
+    response.cookies.set('auth_token', data.accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 15, // 15 minutes
+      path: '/',
+    });
+
+    // Set refresh token cookie
+    response.cookies.set('refresh_token', data.refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 7, // 7 days
+      path: '/',
+    });
 
     return response;
-  } else {
-    return NextResponse.json({ success: false, message: 'Invalid credentials' }, { status: 401 });
+  } catch (error) {
+    console.error('Login error:', error);
+    return NextResponse.json(
+      { success: false, message: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
