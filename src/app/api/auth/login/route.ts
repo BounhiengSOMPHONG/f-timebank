@@ -33,10 +33,12 @@ export async function POST(request: Request) {
       );
     }
 
-    // Create response with tokens in cookies
-    const response = NextResponse.json({ 
-      success: true, 
-      user: data.user 
+    // Create response with tokens in cookies and include tokens in JSON body
+    const response = NextResponse.json({
+      success: true,
+      user: data.user,
+      accessToken: data.accessToken,
+      refreshToken: data.refreshToken,
     });
 
     // Set access token cookie

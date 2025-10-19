@@ -161,7 +161,7 @@ export function HelpRequestsView() {
       <div className="space-y-8 overflow-x-hidden">
         <div className="space-y-2">
           <h1 className="text-4xl font-bold tracking-tight">คำขอความช่วยเหลือ</h1>
-          <p className="text-lg text-muted-foreground">ตรวจสอบและจัดการคำขอความช่วยเหลือจากสมาชิกในระบบ</p>
+          <p className="text-lg text-muted-foreground">รายการรับคู่</p>
         </div>
 
         {/* Stats Cards */}

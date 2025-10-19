@@ -1,9 +1,10 @@
-'use client'
+"use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
@@ -11,47 +12,26 @@ import { Spinner } from "@/components/ui/spinner"
 import { Download, Search, ShieldCheck, ShieldOff, RefreshCw } from "lucide-react"
 
 type VerificationEntry = {
-  id: string
-  fullName: string
+  id: number | string
+  first_name: string
+  last_name: string
   email: string
-  phone: string
-  submittedAt: string
-  documents: Array<{ name: string; url: string }>
-  status: "pending" | "approved" | "rejected"
-  notes?: string
+  phone?: string
+  national_id?: string
+  dob?: string
+  household?: string
+  skills?: string[]
+  status?: "verified" | "pending" | "rejected" | string
+  lat?: number
+  lon?: number
+  created_at?: string
 }
 
-const mockData: VerificationEntry[] = [
-  {
-    id: "USR-001",
-    fullName: "สมชาย ใจดี",
-    email: "somchai.j@example.com",
-    phone: "081-234-5678",
-    submittedAt: new Date().toISOString(),
-    documents: [{ name: "บัตรประชาชน", url: "#" }],
-    status: "pending",
-  },
-  {
-    id: "USR-002",
-    fullName: "สมหญิง รักไทย",
-    email: "somy_rak@example.com",
-    phone: "082-345-6789",
-    submittedAt: new Date(Date.now() - 86400000).toISOString(),
-    documents: [{ name: "บัตรประชาชน", url: "#" }],
-    status: "pending",
-  },
-  {
-    id: "USR-003",
-    fullName: "จอห์น โด",
-    email: "john.doe@example.com",
-    phone: "099-876-5432",
-    submittedAt: new Date(Date.now() - 172800000).toISOString(),
-    documents: [],
-    status: "approved",
-  },
-];
+// Keep a small fallback in case the API is unavailable during dev
+const mockData: VerificationEntry[] = []
 
-const formatDate = (isoDate: string) => {
+const formatDate = (isoDate?: string) => {
+  if (!isoDate) return "-"
   try {
     return new Intl.DateTimeFormat("th-TH", {
       year: "numeric",
@@ -65,42 +45,100 @@ const formatDate = (isoDate: string) => {
   }
 }
 
+const formatISODate = (isoDate?: string) => {
+  if (!isoDate) return "-"
+  try {
+    return new Date(isoDate).toISOString().slice(0, 10)
+  } catch {
+    return isoDate
+  }
+}
+
 export function VerificationView() {
   const { toast } = useToast()
+  const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "")
   const [entries, setEntries] = useState<VerificationEntry[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "approved" | "rejected">("all")
+  const [detailOpen, setDetailOpen] = useState(false)
+  const [detailEntry, setDetailEntry] = useState<VerificationEntry | null>(null)
+  const [detailLoading, setDetailLoading] = useState(false)
 
-  const loadData = useCallback((showToast = false) => {
+  const loadData = useCallback(async (showToast = false) => {
     setIsLoading(true)
-    setTimeout(() => {
-      setEntries(mockData)
-      setIsLoading(false)
-      setIsRefreshing(false)
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") || (process.env.NEXT_PUBLIC_ADMIN_ACCESS_TOKEN as string) : undefined
+      const base = API_BASE || ''
+      const res = await fetch(`${base}/api/admin/verification`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      })
+      if (!res.ok) throw new Error(`Failed to load: ${res.status}`)
+      const data = await res.json()
+      // API may return either an array directly or an object { success, data: [...] }
+      if (Array.isArray(data)) {
+        setEntries(data)
+      } else if (data && Array.isArray(data.data)) {
+        setEntries(data.data)
+      } else {
+        setEntries([])
+      }
       if (showToast) {
         toast({
           title: "รีเฟรชข้อมูลแล้ว",
-          description: `โหลดข้อมูลคำขอยืนยัน ${mockData.length} รายการ`,
+          description: `โหลดข้อมูลคำขอยืนยัน ${Array.isArray(data) ? data.length : 0} รายการ`,
         })
       }
-    }, 1000)
+    } catch (err) {
+      // fallback to mock if available
+      setEntries(mockData)
+      toast({ title: "โหลดข้อมูลล้มเหลว", description: String(err), variant: "destructive" })
+    } finally {
+      setIsLoading(false)
+      setIsRefreshing(false)
+    }
   }, [toast])
 
   useEffect(() => {
     loadData()
   }, [loadData])
 
+  const openDetails = async (id: number | string) => {
+    setDetailLoading(true)
+    setDetailOpen(true)
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") || (process.env.NEXT_PUBLIC_ADMIN_ACCESS_TOKEN as string) : undefined
+      const base = API_BASE || ''
+      const res = await fetch(`${base}/api/admin/verification/${id}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      })
+      if (!res.ok) throw new Error(`Failed to load details: ${res.status}`)
+      const data = await res.json()
+      // Detail endpoint may return { success, data: { ... } }
+      if (data && data.data) {
+        setDetailEntry(data.data)
+      } else {
+        setDetailEntry(data)
+      }
+    } catch (err) {
+      toast({ title: "โหลดรายละเอียดล้มเหลว", description: String(err), variant: "destructive" })
+      setDetailEntry(null)
+    } finally {
+      setDetailLoading(false)
+    }
+  }
+
   const filteredEntries = useMemo(() => {
     const query = search.trim().toLowerCase()
 
     return entries.filter((entry) => {
+      const fullName = `${entry.first_name ?? ""} ${entry.last_name ?? ""}`.trim()
       const matchesSearch =
         !query ||
-        entry.fullName.toLowerCase().includes(query) ||
-        entry.email.toLowerCase().includes(query) ||
-        entry.phone.toLowerCase().includes(query)
+        fullName.toLowerCase().includes(query) ||
+        (entry.email ?? "").toLowerCase().includes(query) ||
+        (entry.phone ?? "").toLowerCase().includes(query)
 
       const matchesStatus = statusFilter === "all" || entry.status === statusFilter
 
@@ -113,7 +151,7 @@ export function VerificationView() {
     [entries],
   )
 
-  const [isUpdating, setIsUpdating] = useState<string | null>(null)
+  const [isUpdating, setIsUpdating] = useState<number | string | null>(null)
 
   const handleApprove = (entry: VerificationEntry) => {
     setIsUpdating(entry.id)
@@ -123,7 +161,7 @@ export function VerificationView() {
       )
       toast({
         title: "ยืนยันผู้ใช้สำเร็จ",
-        description: `${entry.fullName} ถูกยืนยันตัวตนแล้ว`,
+        description: `${entry.first_name} ${entry.last_name} ถูกยืนยันตัวตนแล้ว`,
       })
       setIsUpdating(null)
     }, 500)
@@ -137,7 +175,7 @@ export function VerificationView() {
       )
       toast({
         title: "ปฏิเสธคำขอ",
-        description: `ปฏิเสธคำขอของ ${entry.fullName} เรียบร้อย`,
+        description: `ปฏิเสธคำขอของ ${entry.first_name} ${entry.last_name} เรียบร้อย`,
         variant: "destructive",
       })
       setIsUpdating(null)
@@ -213,6 +251,41 @@ export function VerificationView() {
           </div>
         </CardContent>
       </Card>
+      {/* Details dialog */}
+      <Dialog open={detailOpen} onOpenChange={(open) => { if (!open) setDetailEntry(null); setDetailOpen(open) }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>รายละเอียดผู้ใช้</DialogTitle>
+            <DialogDescription>ข้อมูลผู้ใช้และตำแหน่ง</DialogDescription>
+          </DialogHeader>
+
+          {detailLoading ? (
+            <div className="flex h-40 items-center justify-center"><Spinner className="h-8 w-8"/></div>
+          ) : detailEntry ? (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                <div><strong>id</strong><div>{detailEntry.id}</div></div>
+                <div><strong>ชื่อ</strong><div>{`${detailEntry.first_name} ${detailEntry.last_name}`}</div></div>
+                <div><strong>อีเมล</strong><div>{detailEntry.email}</div></div>
+                <div><strong>โทร</strong><div>{detailEntry.phone ?? "-"}</div></div>
+                <div><strong>national_id</strong><div>{detailEntry.national_id ?? "-"}</div></div>
+                <div><strong>dob</strong><div>{formatISODate(detailEntry.dob)}</div></div>
+                <div><strong>household</strong><div>{detailEntry.household ?? "-"}</div></div>
+                <div><strong>skills</strong><div>{detailEntry.skills ? detailEntry.skills.join(", ") : "-"}</div></div>
+                <div><strong>status</strong><div>{detailEntry.status}</div></div>
+                <div><strong>lat, lon</strong><div>{detailEntry.lat ?? "-"}, {detailEntry.lon ?? "-"}</div></div>
+                <div><strong>created_at</strong><div>{formatDate(detailEntry.created_at)}</div></div>
+              </div>
+            </div>
+          ) : (
+            <div className="text-sm text-muted-foreground">ไม่มีข้อมูล</div>
+          )}
+
+          <DialogFooter>
+            <Button onClick={() => setDetailOpen(false)}>ปิด</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Card>
         <CardHeader>
@@ -228,10 +301,14 @@ export function VerificationView() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>รหัสคำขอ</TableHead>
-                  <TableHead>ชื่อผู้ใช้</TableHead>
-                  <TableHead>ข้อมูลติดต่อ</TableHead>
-                  <TableHead>ยื่นคำขอเมื่อ</TableHead>
+                  <TableHead>id</TableHead>
+                  <TableHead>ชื่อ</TableHead>
+                  <TableHead>อีเมล</TableHead>
+                  <TableHead>โทร</TableHead>
+                  <TableHead>เลขบัตรประชาชน</TableHead>
+                  <TableHead>วันเกิด</TableHead>
+                  <TableHead>ครัวเรือน</TableHead>
+                  <TableHead>ทักษะ</TableHead>
                   <TableHead>สถานะ</TableHead>
                   <TableHead className="text-right">การจัดการ</TableHead>
                 </TableRow>
@@ -242,44 +319,33 @@ export function VerificationView() {
                     <TableCell className="font-medium">{entry.id}</TableCell>
                     <TableCell>
                       <div className="flex flex-col">
-                        <span className="font-semibold">{entry.fullName}</span>
-                        <span className="text-sm text-muted-foreground">
-                          เอกสาร {entry.documents.length} รายการ
-                        </span>
+                        <span className="font-semibold">{`${entry.first_name} ${entry.last_name}`}</span>
                       </div>
                     </TableCell>
-                    <TableCell>
-                      <div className="flex flex-col text-sm">
-                        <span>{entry.email}</span>
-                        <span>{entry.phone}</span>
-                      </div>
+                    <TableCell className="text-sm">{entry.email}</TableCell>
+                    <TableCell className="text-sm">{entry.phone ?? "-"}</TableCell>
+                    <TableCell className="text-sm">{entry.national_id ?? "-"}</TableCell>
+                    <TableCell className="text-sm">{formatISODate(entry.dob)}</TableCell>
+                    <TableCell className="text-sm">{entry.household ?? "-"}</TableCell>
+                    <TableCell className="text-sm">
+                      {entry.skills && entry.skills.length > 0 ? (
+                        entry.skills.map((s, idx) => (
+                          <Badge key={idx} className="mr-1">{s}</Badge>
+                        ))
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
                     </TableCell>
-                    <TableCell>{formatDate(entry.submittedAt)}</TableCell>
                     <TableCell>
                       <Badge
-                        variant={
-                          entry.status === "approved"
-                            ? "default"
-                            : entry.status === "pending"
-                              ? "secondary"
-                              : "destructive"
-                        }
+                        variant={entry.status === "verified" ? "default" : entry.status === "pending" ? "secondary" : "destructive"}
                       >
-                        {entry.status === "approved"
-                          ? "อนุมัติแล้ว"
-                          : entry.status === "pending"
-                            ? "รอตรวจสอบ"
-                            : "ถูกปฏิเสธ"}
+                        {entry.status === "verified" ? "ยืนยันแล้ว" : entry.status === "pending" ? "รอตรวจสอบ" : "ถูกปฏิเสธ"}
                       </Badge>
                     </TableCell>
                     <TableCell className="flex justify-end gap-2">
-                      <Button variant="outline" size="sm" onClick={() => handleApprove(entry)} disabled={isUpdating === entry.id}>
-                        {isUpdating === entry.id ? <Spinner className="h-4 w-4"/> : <ShieldCheck className="mr-2 h-4 w-4" />}
-                        อนุมัติ
-                      </Button>
-                      <Button variant="destructive" size="sm" onClick={() => handleReject(entry)} disabled={isUpdating === entry.id}>
-                        {isUpdating === entry.id ? <Spinner className="h-4 w-4"/> : <ShieldOff className="mr-2 h-4 w-4" />}
-                        ปฏิเสธ
+                      <Button size="sm" variant="ghost" onClick={() => openDetails(entry.id)}>
+                        รายละเอียด
                       </Button>
                     </TableCell>
                   </TableRow>

@@ -11,8 +11,8 @@ import { useToast } from "@/hooks/use-toast"
 export default function LoginPage() {
   const router = useRouter()
   const { toast } = useToast()
-  const [email, setEmail] = useState('')    // ไม่ใช้ null
-  const [password, setPassword] = useState('')
+  const [email, setEmail] = useState('unik09john@gmail.com')    // ไม่ใช้ null
+  const [password, setPassword] = useState('secret123')
   const [remember, setRemember] = useState(false)
   const [error, setError] = useState('')
 
@@ -27,6 +27,13 @@ export default function LoginPage() {
 
       if (response.ok) {
         toast({ title: "เข้าสู่ระบบสำเร็จ", description: "กำลังเปลี่ยนเส้นทางไปหน้าแดชบอร์ด..." });
+        const data = await response.json()
+          // expecting { accessToken, refreshToken } or similar
+          if (typeof window !== 'undefined') {
+            if (data.accessToken) localStorage.setItem('accessToken', data.accessToken)
+            if (data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken)
+              console.log(data);
+          }
         router.push('/'); // Redirect to dashboard
       } else {
         setError('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');

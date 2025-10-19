@@ -14,11 +14,11 @@ interface AdminLayoutProps {
 }
 
 const navigation = [
-  { name: "สมาชิกทั้งหมด", href: "/members", icon: Users },
-  { name: "คำขอความช่วยเหลือ", href: "/help-requests", icon: HelpCircle },
-  { name: "รายการรับคู่", href: "/matching", icon: LinkIcon },
-  { name: "การโอนเครดิต", href: "/transfers", icon: CreditCard },
-  { name: "การถอนเครดิต", href: "/withdrawals", icon: Database },
+  // { name: "สมาชิกทั้งหมด", href: "/members", icon: Users },
+  { name: "รายการรับคู่", href: "/help-requests", icon: HelpCircle },
+  // { name: "รายการรับคู่", href: "/matching", icon: LinkIcon },
+  // { name: "การโอนเครดิต", href: "/transfers", icon: CreditCard },
+  // { name: "การถอนเครดิต", href: "/withdrawals", icon: Database },
   // { name: "AI Matching Logs", href: "/ai-logs", icon: BarChart3 },
   { name: "ยืนยันผู้ใช้", href: "/verification", icon: ShieldCheck },
   { name: "สถิติระบบ", href: "/statistics", icon: BarChart3 },
