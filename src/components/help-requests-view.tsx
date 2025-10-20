@@ -464,49 +464,47 @@ export function HelpRequestsView() {
                 </motion.div>
                 <motion.div variants={itemVariants}>
                     <DialogFooter>
-                    <Button variant="destructive" onClick={() => { setIsJobOpen(false); setSelectedJob(null); }}>ยกเลิก</Button>
-                    <Button
-                      variant="default"
-                      disabled={!selectedSkilledUserId || isMatching}
-                      onClick={async () => {
-                        if (!selectedJob || !selectedSkilledUserId) return
-                        setIsMatching(true)
-                        try {
-                          const token = typeof window !== 'undefined'
-                            ? localStorage.getItem('accessToken') || (process.env.NEXT_PUBLIC_ADMIN_ACCESS_TOKEN as string | undefined)
-                            : undefined
-                          const base = (process.env.NEXT_PUBLIC_API_BASE || process.env.NEXT_PUBLIC_API_URL || '')
-                          const url = `${base}/api/admin/matches`
-                          const body = {
-                            job_id: selectedJob.id,
-                            user_id: selectedSkilledUserId,
-                            reason: 'Matched from admin UI'
+                      <Button
+                        variant="default"
+                        disabled={!selectedSkilledUserId || isMatching}
+                        onClick={async () => {
+                          if (!selectedJob || !selectedSkilledUserId) return
+                          setIsMatching(true)
+                          try {
+                            const token = typeof window !== 'undefined'
+                              ? localStorage.getItem('accessToken') || (process.env.NEXT_PUBLIC_ADMIN_ACCESS_TOKEN as string | undefined)
+                              : undefined
+                            const base = (process.env.NEXT_PUBLIC_API_BASE || process.env.NEXT_PUBLIC_API_URL || '')
+                            const url = `${base}/api/admin/matches`
+                            const body = {
+                              job_id: selectedJob.id,
+                              user_id: selectedSkilledUserId,
+                              reason: 'Matched from admin UI'
+                            }
+                            const res = await fetch(url, {
+                              method: 'POST',
+                              headers: {
+                                'Content-Type': 'application/json',
+                                ...(token ? { Authorization: `Bearer ${token}` } : {})
+                              },
+                              body: JSON.stringify(body)
+                            })
+                            if (!res.ok) throw new Error(`HTTP ${res.status}`)
+                            // remove matched job from list
+                            setJobs((prev) => prev.filter((j) => j.id !== selectedJob.id))
+                            toast({ title: 'จับคู่สำเร็จ', description: `งาน ${selectedJob.title} ถูกจับคู่กับผู้ให้บริการแล้ว` })
+                            setIsJobOpen(false)
+                            setSelectedJob(null)
+                          } catch (err: any) {
+                            toast({ title: 'เกิดข้อผิดพลาด', description: err?.message ?? 'ไม่สามารถจับคู่ได้', variant: 'destructive' })
+                          } finally {
+                            setIsMatching(false)
                           }
-                          const res = await fetch(url, {
-                            method: 'POST',
-                            headers: {
-                              'Content-Type': 'application/json',
-                              ...(token ? { Authorization: `Bearer ${token}` } : {})
-                            },
-                            body: JSON.stringify(body)
-                          })
-                          if (!res.ok) throw new Error(`HTTP ${res.status}`)
-                          // remove matched job from list
-                          setJobs((prev) => prev.filter((j) => j.id !== selectedJob.id))
-                          toast({ title: 'จับคู่สำเร็จ', description: `งาน ${selectedJob.title} ถูกจับคู่กับผู้ให้บริการแล้ว` })
-                          setIsJobOpen(false)
-                          setSelectedJob(null)
-                        } catch (err: any) {
-                          toast({ title: 'เกิดข้อผิดพลาด', description: err?.message ?? 'ไม่สามารถจับคู่ได้', variant: 'destructive' })
-                        } finally {
-                          setIsMatching(false)
-                        }
-                      }}
-                    >
-                      จับคู่ทันที
-                    </Button>
-                    <Button onClick={() => { setIsJobOpen(false); }}>ปิด</Button>
-                  </DialogFooter>
+                        }}
+                      >
+                        จับคู่ทันที
+                      </Button>
+                    </DialogFooter>
                 </motion.div>
               </div>
             ) : (
