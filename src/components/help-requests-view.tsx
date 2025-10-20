@@ -126,6 +126,10 @@ export function HelpRequestsView() {
   const [isLoadingJobs, setIsLoadingJobs] = useState(false)
   const [jobsError, setJobsError] = useState<string | null>(null)
   const [applications, setApplications] = useState<Application[]>([])
+  const [selectedJob, setSelectedJob] = useState<Job | null>(null)
+  const [isJobOpen, setIsJobOpen] = useState(false)
+  const [selectedApp, setSelectedApp] = useState<Application | null>(null)
+  const [isAppOpen, setIsAppOpen] = useState(false)
   const [isLoadingApps, setIsLoadingApps] = useState(false)
   const [appsError, setAppsError] = useState<string | null>(null)
 
@@ -300,9 +304,11 @@ export function HelpRequestsView() {
                 </TableHeader>
                 <TableBody>
                   {jobs.map((job) => (
-                    <TableRow key={job.id} className="hover:bg-muted/50">
+                    <TableRow key={job.id} className="hover:bg-muted/50 cursor-pointer" onClick={() => { setSelectedJob(job); setIsJobOpen(true); }}>
                       <TableCell>{job.id}</TableCell>
-                      <TableCell>{job.title}</TableCell>
+                      <TableCell>
+                        <button className="text-left underline" onClick={(e) => { e.stopPropagation(); setSelectedJob(job); setIsJobOpen(true); }}>{job.title}</button>
+                      </TableCell>
                       <TableCell className="max-w-[300px] truncate">{job.description}</TableCell>
                       <TableCell>{job.required_skills.join(', ')}</TableCell>
                       <TableCell>{job.location_lat}, {job.location_lon}</TableCell>
@@ -346,7 +352,7 @@ export function HelpRequestsView() {
                 </TableHeader>
                 <TableBody>
                   {applications.map((app) => (
-                    <TableRow key={app.id} className="hover:bg-muted/50">
+                    <TableRow key={app.id} className="hover:bg-muted/50 cursor-pointer" onClick={() => { setSelectedApp(app); setIsAppOpen(true); }}>
                       <TableCell>{app.id}</TableCell>
                       <TableCell>
                         <Badge variant={app.status === 'complete' ? 'default' : app.status === 'pending' ? 'outline' : 'destructive'}>
@@ -355,7 +361,9 @@ export function HelpRequestsView() {
                       </TableCell>
                       <TableCell>{new Date(app.applied_at).toLocaleString()}</TableCell>
                       <TableCell>{app.job_id}</TableCell>
-                      <TableCell>{app.title}</TableCell>
+                      <TableCell>
+                        <button className="text-left underline" onClick={(e) => { e.stopPropagation(); setSelectedApp(app); setIsAppOpen(true); }}>{app.title}</button>
+                      </TableCell>
                       <TableCell className="max-w-[300px] truncate">{app.description}</TableCell>
                       <TableCell>{app.required_skills.join(', ')}</TableCell>
                       <TableCell>{app.location_lat}, {app.location_lon}</TableCell>
@@ -369,6 +377,85 @@ export function HelpRequestsView() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Job detail dialog */}
+      <Dialog open={isJobOpen} onOpenChange={setIsJobOpen}>
+        <DialogContent className="max-w-4xl">
+          <motion.div variants={containerVariants} initial="hidden" animate="visible">
+            <motion.div variants={itemVariants}>
+              <DialogHeader>
+                <DialogTitle className="text-2xl">รายละเอียดงาน</DialogTitle>
+                <DialogDescription>รายละเอียดงานและข้อมูลผู้สร้างงาน</DialogDescription>
+              </DialogHeader>
+            </motion.div>
+            {selectedJob ? (
+              <div className="space-y-6 py-4">
+                <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="rounded-lg border p-4 space-y-4">
+                    <h3 className="text-lg font-semibold">{selectedJob.title}</h3>
+                    <p className="text-sm text-muted-foreground">{selectedJob.description}</p>
+                    <p className="mt-2"><strong>ทักษะที่ต้องการ:</strong> {selectedJob.required_skills.join(', ')}</p>
+                    <p><strong>เครดิต:</strong> {selectedJob.time_balance_hours}</p>
+                    <p><strong>วัน/เวลา:</strong> {new Date(selectedJob.created_at).toLocaleString()}</p>
+                  </div>
+                  <div className="rounded-lg border p-4">
+                    <h4 className="text-md font-semibold">ผู้สร้างงาน</h4>
+                    <p>{selectedJob.creator_first_name} {selectedJob.creator_last_name}</p>
+                    <p className="text-sm text-muted-foreground">{selectedJob.creator_email}</p>
+                  </div>
+                </motion.div>
+                <motion.div variants={itemVariants}>
+                  <DialogFooter>
+                    <Button variant="destructive" onClick={() => { setIsJobOpen(false); setSelectedJob(null); }}>ยกเลิก</Button>
+                    <Button onClick={() => { setIsJobOpen(false); }}>ปิด</Button>
+                  </DialogFooter>
+                </motion.div>
+              </div>
+            ) : (
+              <div className="p-4">ไม่มีข้อมูล</div>
+            )}
+          </motion.div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Application detail dialog */}
+      <Dialog open={isAppOpen} onOpenChange={setIsAppOpen}>
+        <DialogContent className="max-w-4xl">
+          <motion.div variants={containerVariants} initial="hidden" animate="visible">
+            <motion.div variants={itemVariants}>
+              <DialogHeader>
+                <DialogTitle className="text-2xl">รายละเอียดใบสมัคร</DialogTitle>
+                <DialogDescription>รายละเอียดใบสมัครและข้อมูลนายจ้าง</DialogDescription>
+              </DialogHeader>
+            </motion.div>
+            {selectedApp ? (
+              <div className="space-y-6 py-4">
+                <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="rounded-lg border p-4 space-y-4">
+                    <h3 className="text-lg font-semibold">{selectedApp.title}</h3>
+                    <p className="text-sm text-muted-foreground">{selectedApp.description}</p>
+                    <p className="mt-2"><strong>ทักษะที่ต้องการ:</strong> {selectedApp.required_skills.join(', ')}</p>
+                    <p><strong>วันที่สมัคร:</strong> {new Date(selectedApp.applied_at).toLocaleString()}</p>
+                  </div>
+                  <div className="rounded-lg border p-4">
+                    <h4 className="text-md font-semibold">นายจ้าง</h4>
+                    <p>{selectedApp.employer_name}</p>
+                    <p className="text-sm text-muted-foreground">{selectedApp.employer_email}<br/>{selectedApp.employer_phone}</p>
+                  </div>
+                </motion.div>
+                <motion.div variants={itemVariants}>
+                  <DialogFooter>
+                    <Button variant="destructive" onClick={() => { setIsAppOpen(false); setSelectedApp(null); }}>ยกเลิก</Button>
+                    <Button onClick={() => { setIsAppOpen(false); }}>ปิด</Button>
+                  </DialogFooter>
+                </motion.div>
+              </div>
+            ) : (
+              <div className="p-4">ไม่มีข้อมูล</div>
+            )}
+          </motion.div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
         <DialogContent className="max-w-4xl">
