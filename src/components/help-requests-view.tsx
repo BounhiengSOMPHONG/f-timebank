@@ -1,7 +1,7 @@
 ﻿'use client'
 
 import { motion, type Variants } from "framer-motion"
-import { useMemo, useState } from "react"
+import { useMemo, useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -51,6 +51,22 @@ interface Provider {
   credits: string;
 }
 
+interface Job {
+  id: number
+  title: string
+  description: string
+  required_skills: string[]
+  location_lat: number
+  location_lon: number
+  time_balance_hours: string
+  broadcasted: boolean
+  created_at: string
+  creator_user_id: number
+  creator_email: string
+  creator_first_name: string
+  creator_last_name: string
+}
+
 const mockProviders: Provider[] = [
   { id: "PROV-001", name: "อาสา ใจดี", skills: "ดูแลผู้สูงอายุ, ทำอาหาร", credits: "150 ชม." },
   { id: "PROV-002", name: "อาสา บำเพ็ญประโยชน์", skills: "ทำสวน, ซ่อมแซมเล็กน้อย", credits: "250 ชม." },
@@ -91,6 +107,40 @@ export function HelpRequestsView() {
   const [providers, setProviders] = useState<Provider[]>([])
   const [isFetchingProviders, setIsFetchingProviders] = useState(false)
   const [selectedProviderId, setSelectedProviderId] = useState<string | null>(null)
+  const [jobs, setJobs] = useState<Job[]>([])
+  const [isLoadingJobs, setIsLoadingJobs] = useState(false)
+  const [jobsError, setJobsError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let mounted = true
+    const fetchJobs = async () => {
+      setIsLoadingJobs(true)
+      setJobsError(null)
+      try {
+        const token = typeof window !== 'undefined'
+          ? localStorage.getItem('accessToken') || (process.env.NEXT_PUBLIC_ADMIN_ACCESS_TOKEN as string | undefined)
+          : undefined
+
+        const base = (process.env.NEXT_PUBLIC_API_BASE || process.env.NEXT_PUBLIC_API_URL || '')
+        const url = `${base}/api/admin/jobs`
+
+        const res = await fetch(url, {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        })
+
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const data = await res.json()
+        if (mounted) setJobs(Array.isArray(data.jobs) ? data.jobs : [])
+      } catch (err: any) {
+        if (mounted) setJobsError(err?.message ?? 'Failed to fetch jobs')
+      } finally {
+        if (mounted) setIsLoadingJobs(false)
+      }
+    }
+
+    fetchJobs()
+    return () => { mounted = false }
+  }, [])
 
   const filteredRequests = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase()
@@ -185,68 +235,41 @@ export function HelpRequestsView() {
             <CardDescription>แสดงรายการคำขอความช่วยเหลือทั้งหมดในระบบ</CardDescription>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>ผู้ขอ</TableHead>
-                  <TableHead>รายละเอียด</TableHead>
-                  <TableHead>สถานที่</TableHead>
-                  <TableHead>วันที่/เวลา</TableHead>
-                  <TableHead>สถานะ</TableHead>
-                  <TableHead className="text-right">การจัดการ</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredRequests.map((request) => (
-                  <TableRow
-                    key={request.id}
-                    className="hover:bg-muted/50 cursor-pointer"
-                    onClick={() => openDetails(request)}
-                  >
-                    <TableCell>
-                      <div className="font-medium">{request.requester.name}</div>
-                      <div className="text-sm text-muted-foreground">อายุ {request.requester.age} ปี</div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="font-medium">{request.requester.category}</div>
-                      <div className="text-sm text-muted-foreground max-w-[300px] truncate">
-                        {request.detail.title}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div>{request.location.city}</div>
-                      <div className="text-sm text-muted-foreground">{request.location.district}</div>
-                    </TableCell>
-                    <TableCell>
-                      <div>{request.date}</div>
-                      <div className="text-sm text-muted-foreground">{request.time}</div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          request.status === "urgent"
-                            ? "destructive"
-                            : request.status === "pending"
-                              ? "outline"
-                              : "default"
-                        }
-                      >
-                        {request.status === "urgent"
-                          ? "เร่งด่วน"
-                          : request.status === "pending"
-                            ? "รอดำเนินการ"
-                            : "จับคู่แล้ว"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); openDetails(request); }}>
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
+            {/* Jobs table fetched from API */}
+            {isLoadingJobs ? (
+              <div className="p-4">กำลังโหลดงาน...</div>
+            ) : jobsError ? (
+              <div className="p-4 text-destructive">เกิดข้อผิดพลาด: {jobsError}</div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>ID</TableHead>
+                    <TableHead>หัวข้อ</TableHead>
+                    <TableHead>คำอธิบาย</TableHead>
+                    <TableHead>ทักษะที่ต้องการ</TableHead>
+                    <TableHead>ตำแหน่ง (lat, lon)</TableHead>
+                    <TableHead>เครดิต (ชม.)</TableHead>
+                    <TableHead>สร้างโดย</TableHead>
+                    <TableHead>วันที่สร้าง</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {jobs.map((job) => (
+                    <TableRow key={job.id} className="hover:bg-muted/50">
+                      <TableCell>{job.id}</TableCell>
+                      <TableCell>{job.title}</TableCell>
+                      <TableCell className="max-w-[300px] truncate">{job.description}</TableCell>
+                      <TableCell>{job.required_skills.join(', ')}</TableCell>
+                      <TableCell>{job.location_lat}, {job.location_lon}</TableCell>
+                      <TableCell>{job.time_balance_hours}</TableCell>
+                      <TableCell>{job.creator_first_name} {job.creator_last_name} ({job.creator_email})</TableCell>
+                      <TableCell>{new Date(job.created_at).toLocaleString()}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
       </div>
