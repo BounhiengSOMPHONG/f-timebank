@@ -67,6 +67,21 @@ interface Job {
   creator_last_name: string
 }
 
+interface Application {
+  id: number
+  status: string
+  applied_at: string
+  job_id: number
+  title: string
+  description: string
+  required_skills: string[]
+  location_lat: number
+  location_lon: number
+  employer_name: string
+  employer_email: string
+  employer_phone: string
+}
+
 const mockProviders: Provider[] = [
   { id: "PROV-001", name: "อาสา ใจดี", skills: "ดูแลผู้สูงอายุ, ทำอาหาร", credits: "150 ชม." },
   { id: "PROV-002", name: "อาสา บำเพ็ญประโยชน์", skills: "ทำสวน, ซ่อมแซมเล็กน้อย", credits: "250 ชม." },
@@ -110,35 +125,64 @@ export function HelpRequestsView() {
   const [jobs, setJobs] = useState<Job[]>([])
   const [isLoadingJobs, setIsLoadingJobs] = useState(false)
   const [jobsError, setJobsError] = useState<string | null>(null)
+  const [applications, setApplications] = useState<Application[]>([])
+  const [isLoadingApps, setIsLoadingApps] = useState(false)
+  const [appsError, setAppsError] = useState<string | null>(null)
 
   useEffect(() => {
     let mounted = true
-    const fetchJobs = async () => {
+
+    const fetchAll = async () => {
       setIsLoadingJobs(true)
       setJobsError(null)
+      setIsLoadingApps(true)
+      setAppsError(null)
+
+      const token = typeof window !== 'undefined'
+        ? localStorage.getItem('accessToken') || (process.env.NEXT_PUBLIC_ADMIN_ACCESS_TOKEN as string | undefined)
+        : undefined
+
+      const base = (process.env.NEXT_PUBLIC_API_BASE || process.env.NEXT_PUBLIC_API_URL || '')
+      const jobsUrl = `${base}/api/admin/jobs`
+      const appsUrl = `${base}/api/jobapp`
+
       try {
-        const token = typeof window !== 'undefined'
-          ? localStorage.getItem('accessToken') || (process.env.NEXT_PUBLIC_ADMIN_ACCESS_TOKEN as string | undefined)
-          : undefined
+        const [jobsRes, appsRes] = await Promise.all([
+          fetch(jobsUrl, { headers: token ? { Authorization: `Bearer ${token}` } : undefined }),
+          fetch(appsUrl, { headers: token ? { Authorization: `Bearer ${token}` } : undefined }),
+        ])
 
-        const base = (process.env.NEXT_PUBLIC_API_BASE || process.env.NEXT_PUBLIC_API_URL || '')
-        const url = `${base}/api/admin/jobs`
+        if (!jobsRes.ok) throw new Error(`Jobs HTTP ${jobsRes.status}`)
+        if (!appsRes.ok) throw new Error(`Applications HTTP ${appsRes.status}`)
 
-        const res = await fetch(url, {
-          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-        })
+        const jobsData = await jobsRes.json()
+        const appsData = await appsRes.json()
 
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        const data = await res.json()
-        if (mounted) setJobs(Array.isArray(data.jobs) ? data.jobs : [])
+        const fetchedJobs: Job[] = Array.isArray(jobsData.jobs) ? jobsData.jobs : []
+        const fetchedApps: Application[] = Array.isArray(appsData.applications) ? appsData.applications : []
+
+        // Filter out jobs that already have applications (by job_id)
+        const appliedJobIds = new Set<number>(fetchedApps.map((a) => a.job_id))
+        const filteredJobs = fetchedJobs.filter((j) => !appliedJobIds.has(j.id))
+
+        if (mounted) {
+          setJobs(filteredJobs)
+          setApplications(fetchedApps)
+        }
       } catch (err: any) {
-        if (mounted) setJobsError(err?.message ?? 'Failed to fetch jobs')
+        if (mounted) {
+          setJobsError(err?.message ?? 'Failed to fetch jobs')
+          setAppsError(err?.message ?? 'Failed to fetch applications')
+        }
       } finally {
-        if (mounted) setIsLoadingJobs(false)
+        if (mounted) {
+          setIsLoadingJobs(false)
+          setIsLoadingApps(false)
+        }
       }
     }
 
-    fetchJobs()
+    fetchAll()
     return () => { mounted = false }
   }, [])
 
@@ -265,6 +309,58 @@ export function HelpRequestsView() {
                       <TableCell>{job.time_balance_hours}</TableCell>
                       <TableCell>{job.creator_first_name} {job.creator_last_name} ({job.creator_email})</TableCell>
                       <TableCell>{new Date(job.created_at).toLocaleString()}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Applications section below jobs */}
+        <Card>
+          <CardHeader>
+            <CardTitle>รายการใบสมัคร (applications)</CardTitle>
+            <CardDescription>แสดงใบสมัครจาก `/api/jobapp`</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isLoadingApps ? (
+              <div className="p-4">กำลังโหลดใบสมัคร...</div>
+            ) : appsError ? (
+              <div className="p-4 text-destructive">เกิดข้อผิดพลาด: {appsError}</div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>ID</TableHead>
+                    <TableHead>สถานะ</TableHead>
+                    <TableHead>วันที่สมัคร</TableHead>
+                    <TableHead>Job ID</TableHead>
+                    <TableHead>หัวข้อ</TableHead>
+                    <TableHead>คำอธิบาย</TableHead>
+                    <TableHead>ทักษะ</TableHead>
+                    <TableHead>ตำแหน่ง</TableHead>
+                    <TableHead>นายจ้าง</TableHead>
+                    <TableHead>ติดต่อ</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {applications.map((app) => (
+                    <TableRow key={app.id} className="hover:bg-muted/50">
+                      <TableCell>{app.id}</TableCell>
+                      <TableCell>
+                        <Badge variant={app.status === 'complete' ? 'default' : app.status === 'pending' ? 'outline' : 'destructive'}>
+                          {app.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{new Date(app.applied_at).toLocaleString()}</TableCell>
+                      <TableCell>{app.job_id}</TableCell>
+                      <TableCell>{app.title}</TableCell>
+                      <TableCell className="max-w-[300px] truncate">{app.description}</TableCell>
+                      <TableCell>{app.required_skills.join(', ')}</TableCell>
+                      <TableCell>{app.location_lat}, {app.location_lon}</TableCell>
+                      <TableCell>{app.employer_name}</TableCell>
+                      <TableCell>{app.employer_email}<br/>{app.employer_phone}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
