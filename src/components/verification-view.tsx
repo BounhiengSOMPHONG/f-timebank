@@ -165,37 +165,60 @@ export function VerificationView() {
 
   const handleApprove = (entry: VerificationEntry) => {
     setIsUpdating(entry.id)
-    setTimeout(() => {
-      setEntries((prev) =>
-        prev.map((e) => (e.id === entry.id ? { ...e, status: "approved" } : e)),
-      )
-      toast({
-        title: "ยืนยันผู้ใช้สำเร็จ",
-        description: `${entry.first_name} ${entry.last_name} ถูกยืนยันตัวตนแล้ว`,
-      })
-      setIsUpdating(null)
-    }, 500)
+    ;(async () => {
+      try {
+        const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") || (process.env.NEXT_PUBLIC_ADMIN_ACCESS_TOKEN as string) : undefined
+        const base = API_BASE || ''
+        const res = await fetch(`${base}/api/admin/verification/${entry.id}/verify`, {
+          method: 'PATCH',
+          headers: token ? { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' },
+        })
+        if (!res.ok) throw new Error(`Failed to verify: ${res.status}`)
+
+        setEntries((prev) => prev.map((e) => (e.id === entry.id ? { ...e, status: "verified" } : e)))
+        setDetailEntry((d) => (d && d.id === entry.id ? { ...d, status: 'verified' } : d))
+        toast({ title: "ยืนยันผู้ใช้สำเร็จ", description: `${entry.first_name} ${entry.last_name} ถูกยืนยันตัวตนแล้ว` })
+      } catch (err: any) {
+        toast({ title: "ยืนยันล้มเหลว", description: String(err?.message ?? err), variant: 'destructive' })
+      } finally {
+        setIsUpdating(null)
+      }
+    })()
   }
 
   const handleReject = (entry: VerificationEntry) => {
     setIsUpdating(entry.id)
-    setTimeout(() => {
-      setEntries((prev) =>
-        prev.map((e) => (e.id === entry.id ? { ...e, status: "rejected" } : e)),
-      )
-      toast({
-        title: "ปฏิเสธคำขอ",
-        description: `ปฏิเสธคำขอของ ${entry.first_name} ${entry.last_name} เรียบร้อย`,
-        variant: "destructive",
-      })
-      setIsUpdating(null)
-    }, 500)
+    ;(async () => {
+      try {
+        const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") || (process.env.NEXT_PUBLIC_ADMIN_ACCESS_TOKEN as string) : undefined
+        const base = API_BASE || ''
+        const res = await fetch(`${base}/api/admin/verification/${entry.id}/reject`, {
+          method: 'PATCH',
+          headers: token ? { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' },
+        })
+        if (!res.ok) throw new Error(`Failed to reject: ${res.status}`)
+
+        setEntries((prev) => prev.map((e) => (e.id === entry.id ? { ...e, status: "rejected" } : e)))
+        setDetailEntry((d) => (d && d.id === entry.id ? { ...d, status: 'rejected' } : d))
+        toast({ title: "ปฏิเสธคำขอ", description: `ปฏิเสธคำขอของ ${entry.first_name} ${entry.last_name} เรียบร้อย`, variant: "destructive" })
+      } catch (err: any) {
+        toast({ title: "ปฏิเสธล้มเหลว", description: String(err?.message ?? err), variant: 'destructive' })
+      } finally {
+        setIsUpdating(null)
+      }
+    })()
   }
 
   const handleRefresh = () => {
     setIsRefreshing(true)
     loadData(true)
   }
+
+  const detailIsPending = (() => {
+    if (!detailEntry) return false
+    const normalized = (detailEntry.status || "").toString().toLowerCase()
+    return ["pending", "review", "under_review", "รอตรวจสอบ"].includes(normalized)
+  })()
 
   return (
     <div className="space-y-6">
@@ -292,7 +315,20 @@ export function VerificationView() {
           )}
 
           <DialogFooter>
-            <Button onClick={() => setDetailOpen(false)}>ปิด</Button>
+            {detailEntry && detailIsPending ? (
+              <>
+                <Button variant="destructive" onClick={() => detailEntry && handleReject(detailEntry)} disabled={isUpdating === detailEntry.id}>
+                  <ShieldOff className="mr-2 h-4 w-4" />
+                  ปฏิเสธ
+                </Button>
+                <Button onClick={() => detailEntry && handleApprove(detailEntry)} disabled={isUpdating === detailEntry.id}>
+                  <ShieldCheck className="mr-2 h-4 w-4" />
+                  ยืนยัน
+                </Button>
+              </>
+            ) : (
+              <Button onClick={() => setDetailOpen(false)}>ปิด</Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
