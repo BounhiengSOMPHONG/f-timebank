@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -162,6 +163,8 @@ export function VerificationView() {
   )
 
   const [isUpdating, setIsUpdating] = useState<number | string | null>(null)
+  const [showRejectInput, setShowRejectInput] = useState(false)
+  const [rejectionReason, setRejectionReason] = useState("")
 
   const handleApprove = (entry: VerificationEntry) => {
     setIsUpdating(entry.id)
@@ -186,15 +189,17 @@ export function VerificationView() {
     })()
   }
 
-  const handleReject = (entry: VerificationEntry) => {
+  const handleReject = (entry: VerificationEntry, reason?: string) => {
     setIsUpdating(entry.id)
     ;(async () => {
       try {
         const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") || (process.env.NEXT_PUBLIC_ADMIN_ACCESS_TOKEN as string) : undefined
         const base = API_BASE || ''
+        const payload = reason ? { rejectionReason: reason } : {}
         const res = await fetch(`${base}/api/admin/verification/${entry.id}/reject`, {
           method: 'PATCH',
           headers: token ? { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' },
+          body: Object.keys(payload).length ? JSON.stringify(payload) : undefined,
         })
         if (!res.ok) throw new Error(`Failed to reject: ${res.status}`)
 
@@ -205,6 +210,8 @@ export function VerificationView() {
         toast({ title: "ปฏิเสธล้มเหลว", description: String(err?.message ?? err), variant: 'destructive' })
       } finally {
         setIsUpdating(null)
+        setShowRejectInput(false)
+        setRejectionReason("")
       }
     })()
   }
@@ -316,16 +323,37 @@ export function VerificationView() {
 
           <DialogFooter>
             {detailEntry && detailIsPending ? (
-              <>
-                <Button variant="destructive" onClick={() => detailEntry && handleReject(detailEntry)} disabled={isUpdating === detailEntry.id}>
-                  <ShieldOff className="mr-2 h-4 w-4" />
-                  ปฏิเสธ
-                </Button>
-                <Button onClick={() => detailEntry && handleApprove(detailEntry)} disabled={isUpdating === detailEntry.id}>
-                  <ShieldCheck className="mr-2 h-4 w-4" />
-                  ยืนยัน
-                </Button>
-              </>
+              <div className="w-full">
+                {showRejectInput ? (
+                  <div className="space-y-2 w-full">
+                    <Textarea
+                      value={rejectionReason}
+                      onChange={(e) => setRejectionReason((e.target as HTMLTextAreaElement).value)}
+                      placeholder="ใส่เหตุผลการปฏิเสธที่นี่"
+                      className="w-full"
+                      rows={3}
+                    />
+                    <div className="flex justify-end gap-2">
+                      <Button variant="ghost" onClick={() => { setShowRejectInput(false); setRejectionReason(""); }} disabled={isUpdating === detailEntry.id}>ยกเลิก</Button>
+                      <Button variant="destructive" onClick={() => detailEntry && handleReject(detailEntry, rejectionReason)} disabled={isUpdating === detailEntry.id || rejectionReason.trim() === ""}>
+                        <ShieldOff className="mr-2 h-4 w-4" />
+                        ยืนยันการปฏิเสธ
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex justify-end gap-2">
+                    <Button variant="destructive" onClick={() => setShowRejectInput(true)} disabled={isUpdating === detailEntry.id}>
+                      <ShieldOff className="mr-2 h-4 w-4" />
+                      ปฏิเสธ
+                    </Button>
+                    <Button onClick={() => detailEntry && handleApprove(detailEntry)} disabled={isUpdating === detailEntry.id}>
+                      <ShieldCheck className="mr-2 h-4 w-4" />
+                      ยืนยัน
+                    </Button>
+                  </div>
+                )}
+              </div>
             ) : (
               <Button onClick={() => setDetailOpen(false)}>ปิด</Button>
             )}
