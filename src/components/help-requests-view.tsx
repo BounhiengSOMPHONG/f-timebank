@@ -82,6 +82,17 @@ interface Application {
   employer_phone: string
 }
 
+interface SkilledUser {
+  id: number
+  first_name: string
+  last_name: string
+  email: string
+  skills: string[]
+  current_lat: number
+  current_lon: number
+  distance_km: number
+}
+
 const mockProviders: Provider[] = [
   { id: "PROV-001", name: "อาสา ใจดี", skills: "ดูแลผู้สูงอายุ, ทำอาหาร", credits: "150 ชม." },
   { id: "PROV-002", name: "อาสา บำเพ็ญประโยชน์", skills: "ทำสวน, ซ่อมแซมเล็กน้อย", credits: "250 ชม." },
@@ -130,6 +141,9 @@ export function HelpRequestsView() {
   const [isJobOpen, setIsJobOpen] = useState(false)
   const [selectedApp, setSelectedApp] = useState<Application | null>(null)
   const [isAppOpen, setIsAppOpen] = useState(false)
+  const [skilledUsers, setSkilledUsers] = useState<SkilledUser[]>([])
+  const [isFetchingSkilledUsers, setIsFetchingSkilledUsers] = useState(false)
+  const [selectedSkilledUserId, setSelectedSkilledUserId] = useState<number | null>(null)
   const [isLoadingApps, setIsLoadingApps] = useState(false)
   const [appsError, setAppsError] = useState<string | null>(null)
 
@@ -226,6 +240,27 @@ export function HelpRequestsView() {
     }, 1000);
   };
 
+  const loadSkilledUsers = async (jobId: number) => {
+    setIsFetchingSkilledUsers(true)
+    setSelectedSkilledUserId(null)
+    setSkilledUsers([])
+    try {
+      const token = typeof window !== 'undefined'
+        ? localStorage.getItem('accessToken') || (process.env.NEXT_PUBLIC_ADMIN_ACCESS_TOKEN as string | undefined)
+        : undefined
+      const base = (process.env.NEXT_PUBLIC_API_BASE || process.env.NEXT_PUBLIC_API_URL || '')
+      const url = `${base}/api/admin/jobs/${jobId}/skilled-users`
+      const res = await fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : undefined })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const data = await res.json()
+      setSkilledUsers(Array.isArray(data.users) ? data.users : [])
+    } catch (err) {
+      setSkilledUsers([])
+    } finally {
+      setIsFetchingSkilledUsers(false)
+    }
+  }
+
   const handleProceedToMatch = () => {
     if (!selectedProviderId) {
       toast({
@@ -304,10 +339,10 @@ export function HelpRequestsView() {
                 </TableHeader>
                 <TableBody>
                   {jobs.map((job) => (
-                    <TableRow key={job.id} className="hover:bg-muted/50 cursor-pointer" onClick={() => { setSelectedJob(job); setIsJobOpen(true); }}>
+                    <TableRow key={job.id} className="hover:bg-muted/50 cursor-pointer" onClick={() => { setSelectedJob(job); setIsJobOpen(true); loadSkilledUsers(job.id); }}>
                       <TableCell>{job.id}</TableCell>
                       <TableCell>
-                        <button className="text-left underline" onClick={(e) => { e.stopPropagation(); setSelectedJob(job); setIsJobOpen(true); }}>{job.title}</button>
+                        <button className="text-left underline" onClick={(e) => { e.stopPropagation(); setSelectedJob(job); setIsJobOpen(true); loadSkilledUsers(job.id); }}>{job.title}</button>
                       </TableCell>
                       <TableCell className="max-w-[300px] truncate">{job.description}</TableCell>
                       <TableCell>{job.required_skills.join(', ')}</TableCell>
@@ -402,6 +437,28 @@ export function HelpRequestsView() {
                     <h4 className="text-md font-semibold">ผู้สร้างงาน</h4>
                     <p>{selectedJob.creator_first_name} {selectedJob.creator_last_name}</p>
                     <p className="text-sm text-muted-foreground">{selectedJob.creator_email}</p>
+                    <div className="mt-4">
+                      <h5 className="text-sm font-medium mb-2">ผู้ให้บริการที่เสนอ</h5>
+                      {isFetchingSkilledUsers ? (
+                        <div className="text-sm text-muted-foreground">กำลังโหลดผู้ให้บริการ...</div>
+                      ) : (
+                        <div className="space-y-2 max-h-[240px] overflow-y-auto">
+                          {skilledUsers.map((u) => (
+                            <div key={u.id} className={`rounded-lg border p-3 flex items-center justify-between ${selectedSkilledUserId === u.id ? 'bg-muted border-primary' : ''}`}>
+                              <div>
+                                <p className="font-medium">{u.first_name} {u.last_name}</p>
+                                <p className="text-sm text-muted-foreground">{u.skills.join(', ')}</p>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-sm">{typeof u.distance_km === 'number' && !isNaN(u.distance_km) ? `${u.distance_km.toFixed(2)} กม.` : 'ไม่ระบุ'}</p>
+                                <Button size="sm" variant={selectedSkilledUserId === u.id ? 'default' : 'outline'} onClick={() => setSelectedSkilledUserId(u.id)}>เลือก</Button>
+                              </div>
+                            </div>
+                          ))}
+                          {skilledUsers.length === 0 && <div className="text-sm text-muted-foreground">ไม่มีผู้ให้บริการที่ตรงกับทักษะ</div>}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </motion.div>
                 <motion.div variants={itemVariants}>
