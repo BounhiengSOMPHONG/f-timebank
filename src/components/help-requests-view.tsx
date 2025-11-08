@@ -388,37 +388,38 @@ export function HelpRequestsView() {
                 <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   <div className="rounded-lg border p-4 space-y-4">
                     <h3 className="text-lg font-semibold">{selectedJob.title}</h3>
-                    <p className="text-sm text-muted-foreground">{selectedJob.description}</p>
+                    <div>
+                      <p className="text-sm text-muted-foreground">{selectedJob.description}</p>
+                      <div className="mt-3 text-sm">
+                        <p className="font-medium">ผู้สร้างงาน: {selectedJob.creator_first_name} {selectedJob.creator_last_name}</p>
+                        <p className="text-sm text-muted-foreground">{selectedJob.creator_email}</p>
+                      </div>
+                    </div>
                     <p className="mt-2"><strong>ทักษะที่ต้องการ:</strong> {selectedJob.required_skills.join(', ')}</p>
                     <p><strong>เครดิต:</strong> {selectedJob.time_balance_hours}</p>
                     <p><strong>วัน/เวลา:</strong> {new Date(selectedJob.created_at).toLocaleString()}</p>
                   </div>
                   <div className="rounded-lg border p-4">
-                    <h4 className="text-md font-semibold">ผู้สร้างงาน</h4>
-                    <p>{selectedJob.creator_first_name} {selectedJob.creator_last_name}</p>
-                    <p className="text-sm text-muted-foreground">{selectedJob.creator_email}</p>
-                    <div className="mt-4">
-                      <h5 className="text-sm font-medium mb-2">ผู้ให้บริการที่เสนอ</h5>
-                      {isFetchingSkilledUsers ? (
-                        <div className="text-sm text-muted-foreground">กำลังโหลดผู้ให้บริการ...</div>
-                      ) : (
-                        <div className="space-y-2 max-h-[240px] overflow-y-auto">
-                          {skilledUsers.map((u) => (
-                            <div key={u.id} className={`rounded-lg border p-3 flex items-center justify-between ${selectedSkilledUserId === u.id ? 'bg-muted border-primary' : ''}`}>
-                              <div>
-                                <p className="font-medium">{u.first_name} {u.last_name}</p>
-                                <p className="text-sm text-muted-foreground">{u.skills.join(', ')}</p>
-                              </div>
-                              <div className="text-right">
-                                <p className="text-sm">{typeof u.distance_km === 'number' && !isNaN(u.distance_km) ? `${u.distance_km.toFixed(2)} กม.` : 'ไม่ระบุ'}</p>
-                                <Button size="sm" variant={selectedSkilledUserId === u.id ? 'default' : 'outline'} onClick={() => setSelectedSkilledUserId(u.id)}>เลือก</Button>
-                              </div>
+                    <h5 className="text-sm font-medium mb-2">ผู้ให้บริการที่เสนอ</h5>
+                    {isFetchingSkilledUsers ? (
+                      <div className="text-sm text-muted-foreground">กำลังโหลดผู้ให้บริการ...</div>
+                    ) : (
+                      <div className="space-y-2 max-h-[240px] overflow-y-auto">
+                        {skilledUsers.map((u) => (
+                          <div key={u.id} className={`rounded-lg border p-3 flex items-center justify-between ${selectedSkilledUserId === u.id ? 'bg-muted border-primary' : ''}`}>
+                            <div>
+                              <p className="font-medium">{u.first_name} {u.last_name}</p>
+                              <p className="text-sm text-muted-foreground">{u.skills.join(', ')}</p>
                             </div>
-                          ))}
-                          {skilledUsers.length === 0 && <div className="text-sm text-muted-foreground">ไม่มีผู้ให้บริการที่ตรงกับทักษะ</div>}
-                        </div>
-                      )}
-                    </div>
+                            <div className="text-right">
+                              <p className="text-sm">{typeof u.distance_km === 'number' && !isNaN(u.distance_km) ? `${u.distance_km.toFixed(2)} กม.` : 'ไม่ระบุ'}</p>
+                              <Button size="sm" variant={selectedSkilledUserId === u.id ? 'default' : 'outline'} onClick={() => setSelectedSkilledUserId(u.id)}>เลือก</Button>
+                            </div>
+                          </div>
+                        ))}
+                        {skilledUsers.length === 0 && <div className="text-sm text-muted-foreground">ไม่มีผู้ให้บริการที่ตรงกับทักษะ</div>}
+                      </div>
+                    )}
                   </div>
                 </motion.div>
                 <motion.div variants={itemVariants}>
