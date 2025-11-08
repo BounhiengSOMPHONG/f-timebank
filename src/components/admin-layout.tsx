@@ -3,7 +3,7 @@
 import type { ReactNode } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Clock, Users, HelpCircle, LinkIcon, CreditCard, Database, BarChart3, Bell, ShieldCheck } from "lucide-react"
+import { Clock, Users, HelpCircle, LinkIcon, CreditCard, Database, BarChart3, Bell, ShieldCheck, Layers } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -20,6 +20,7 @@ const navigation = [
   // { name: "การโอนเครดิต", href: "/transfers", icon: CreditCard },
   // { name: "การถอนเครดิต", href: "/withdrawals", icon: Database },
   // { name: "AI Matching Logs", href: "/ai-logs", icon: BarChart3 },
+  { name: "จัดการทักษะ", href: "/skills", icon: Layers },
   { name: "ยืนยันผู้ใช้", href: "/verification", icon: ShieldCheck },
   { name: "สถิติระบบ", href: "/statistics", icon: BarChart3 },
 ]
