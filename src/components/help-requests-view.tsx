@@ -15,7 +15,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { useToast } from "@/hooks/use-toast"
-import { help_requests } from "@/data/help-requests"
 import {
   CheckCircle2,
   Eye,
@@ -140,6 +139,9 @@ export function HelpRequestsView() {
   const [statusFilter] = useState("all")
   const [selectedRequest, setSelectedRequest] = useState<HelpRequest | null>(null)
   const [isDetailsOpen, setIsDetailsOpen] = useState(false)
+  const [requests, setRequests] = useState<HelpRequest[]>([])
+  const [isLoadingRequests, setIsLoadingRequests] = useState(false)
+  const [requestsError, setRequestsError] = useState<string | null>(null)
   const [providers, setProviders] = useState<Provider[]>([])
   const [isFetchingProviders, setIsFetchingProviders] = useState(false)
   const [selectedProviderId, setSelectedProviderId] = useState<string | null>(null)
@@ -242,10 +244,36 @@ export function HelpRequestsView() {
     return () => { mounted = false }
   }, [])
 
+  useEffect(() => {
+    let mounted = true
+    const fetchRequests = async () => {
+      setIsLoadingRequests(true)
+      setRequestsError(null)
+      try {
+        const base = (process.env.NEXT_PUBLIC_API_BASE || process.env.NEXT_PUBLIC_API_URL || '')
+        const res = await fetch(`${base}/api/help-requests`)
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const data = await res.json()
+        const fetched: HelpRequest[] = Array.isArray(data)
+          ? data
+          : Array.isArray(data.help_requests)
+            ? data.help_requests
+            : []
+        if (mounted) setRequests(fetched)
+      } catch (err: any) {
+        if (mounted) setRequestsError(err?.message ?? 'Failed to fetch help requests')
+      } finally {
+        if (mounted) setIsLoadingRequests(false)
+      }
+    }
+    fetchRequests()
+    return () => { mounted = false }
+  }, [])
+
   const filteredRequests = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase()
 
-    return help_requests.filter((request: HelpRequest) => {
+  return requests.filter((request: HelpRequest) => {
       const matchesSearch =
         !normalizedQuery ||
         request.requester.name.toLowerCase().includes(normalizedQuery) ||
