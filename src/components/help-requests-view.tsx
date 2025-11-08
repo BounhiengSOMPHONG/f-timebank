@@ -93,6 +93,16 @@ interface SkilledUser {
   distance_km: number
 }
 
+interface Match {
+  id: number
+  job_id: number
+  user_id: number
+  reason?: string
+  created_at?: string
+  job_title?: string
+  user_email?: string
+}
+
 const mockProviders: Provider[] = [
   { id: "PROV-001", name: "อาสา ใจดี", skills: "ดูแลผู้สูงอายุ, ทำอาหาร", credits: "150 ชม." },
   { id: "PROV-002", name: "อาสา บำเพ็ญประโยชน์", skills: "ทำสวน, ซ่อมแซมเล็กน้อย", credits: "250 ชม." },
@@ -136,6 +146,9 @@ export function HelpRequestsView() {
   const [jobs, setJobs] = useState<Job[]>([])
   const [isLoadingJobs, setIsLoadingJobs] = useState(false)
   const [jobsError, setJobsError] = useState<string | null>(null)
+  const [matches, setMatches] = useState<Match[]>([])
+  const [isLoadingMatches, setIsLoadingMatches] = useState(false)
+  const [matchesError, setMatchesError] = useState<string | null>(null)
   const [applications, setApplications] = useState<Application[]>([])
   const [selectedJob, setSelectedJob] = useState<Job | null>(null)
   const [isJobOpen, setIsJobOpen] = useState(false)
@@ -169,18 +182,25 @@ export function HelpRequestsView() {
       const base = (process.env.NEXT_PUBLIC_API_BASE || process.env.NEXT_PUBLIC_API_URL || '')
       const jobsUrl = `${base}/api/admin/jobs`
       const appsUrl = `${base}/api/jobapp`
+      const matchesUrl = `${base}/api/admin/matches`
 
       try {
-        const [jobsRes, appsRes] = await Promise.all([
+        setIsLoadingMatches(true)
+        setMatchesError(null)
+
+        const [jobsRes, appsRes, matchesRes] = await Promise.all([
           fetch(jobsUrl, { headers: token ? { Authorization: `Bearer ${token}` } : undefined }),
           fetch(appsUrl, { headers: token ? { Authorization: `Bearer ${token}` } : undefined }),
+          fetch(matchesUrl, { headers: token ? { Authorization: `Bearer ${token}` } : undefined }),
         ])
 
         if (!jobsRes.ok) throw new Error(`Jobs HTTP ${jobsRes.status}`)
         if (!appsRes.ok) throw new Error(`Applications HTTP ${appsRes.status}`)
+        if (!matchesRes.ok) throw new Error(`Matches HTTP ${matchesRes.status}`)
 
         const jobsData = await jobsRes.json()
         const appsData = await appsRes.json()
+        const matchesData = await matchesRes.json()
 
         // store raw responses for debug panel
         if (mounted) {
@@ -190,21 +210,30 @@ export function HelpRequestsView() {
 
         const fetchedJobs: Job[] = Array.isArray(jobsData.jobs) ? jobsData.jobs : []
         const fetchedApps: Application[] = Array.isArray(appsData.applications) ? appsData.applications : []
+        const fetchedMatches: Match[] = Array.isArray(matchesData.matches)
+          ? matchesData.matches
+          : Array.isArray(matchesData)
+            ? matchesData
+            : []
 
-        // Keep all jobs from the API (do not filter out jobs that already have applications)
+        // Remove jobs that have already been matched
         if (mounted) {
-          setJobs(fetchedJobs)
+          const matchedJobIds = new Set<number>(fetchedMatches.map((m) => m.job_id).filter((id): id is number => typeof id === 'number'))
+          setJobs(fetchedJobs.filter((j) => !matchedJobIds.has(j.id)))
           setApplications(fetchedApps)
+          setMatches(fetchedMatches)
         }
       } catch (err: any) {
         if (mounted) {
           setJobsError(err?.message ?? 'Failed to fetch jobs')
           setAppsError(err?.message ?? 'Failed to fetch applications')
+          setMatchesError(err?.message ?? 'Failed to fetch matches')
         }
       } finally {
         if (mounted) {
           setIsLoadingJobs(false)
           setIsLoadingApps(false)
+          setIsLoadingMatches(false)
         }
       }
     }
@@ -305,6 +334,32 @@ export function HelpRequestsView() {
       setSkilledUsers([])
     } finally {
       setIsFetchingSkilledUsers(false)
+    }
+  }
+
+  const loadMatches = async () => {
+    setIsLoadingMatches(true)
+    setMatchesError(null)
+    try {
+      const token = typeof window !== 'undefined'
+        ? localStorage.getItem('accessToken') || (process.env.NEXT_PUBLIC_ADMIN_ACCESS_TOKEN as string | undefined)
+        : undefined
+      const base = (process.env.NEXT_PUBLIC_API_BASE || process.env.NEXT_PUBLIC_API_URL || '')
+      const url = `${base}/api/admin/matches`
+      const res = await fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : undefined })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const data = await res.json()
+      const fetchedMatches: Match[] = Array.isArray(data.matches)
+        ? data.matches
+        : Array.isArray(data)
+          ? data
+          : []
+      setMatches(fetchedMatches)
+    } catch (err: any) {
+      setMatches([])
+      setMatchesError(err?.message ?? 'Failed to fetch matches')
+    } finally {
+      setIsLoadingMatches(false)
     }
   }
 
@@ -409,7 +464,46 @@ export function HelpRequestsView() {
           </CardContent>
         </Card>
 
-        {/* Applications section removed per request */}
+        <Card>
+          <CardHeader>
+            <CardTitle>รายการงานที่จับคู่แล้ว</CardTitle>
+            <CardDescription>แสดงรายการการจับคู่ที่สร้างจากระบบ</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isLoadingMatches ? (
+              <div className="p-4">กำลังโหลดรายการจับคู่...</div>
+            ) : matchesError ? (
+              <div className="p-4 text-destructive">เกิดข้อผิดพลาด: {matchesError}</div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Match ID</TableHead>
+                    <TableHead>Job ID</TableHead>
+                    <TableHead>หัวข้อ</TableHead>
+                    <TableHead>ผู้ถูกจับคู่</TableHead>
+                    <TableHead>อีเมล</TableHead>
+                    <TableHead>เหตุผล</TableHead>
+                    <TableHead>วันที่จับคู่</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {matches.map((m, idx) => (
+                    <TableRow key={m.id ?? idx} className="hover:bg-muted/50">
+                      <TableCell>{m.id ?? '-'}</TableCell>
+                      <TableCell>{m.job_id ?? '-'}</TableCell>
+                      <TableCell>{m.job_title ?? '-'}</TableCell>
+                      <TableCell>{m.user_id ? (m.user_email ? m.user_email.split('@')[0] : '-') : '-'}</TableCell>
+                      <TableCell>{m.user_email ?? '-'}</TableCell>
+                      <TableCell className="max-w-[300px] truncate">{m.reason ?? '-'}</TableCell>
+                      <TableCell>{m.created_at ? new Date(m.created_at).toLocaleString() : '-'}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       {/* Job detail dialog */}
@@ -501,8 +595,11 @@ export function HelpRequestsView() {
                               body: JSON.stringify(body)
                             })
                             if (!res.ok) throw new Error(`HTTP ${res.status}`)
+                            const createdMatch = await res.json().catch(() => null)
                             // remove matched job from list
                             setJobs((prev) => prev.filter((j) => j.id !== selectedJob.id))
+                            // refresh matches list from server to ensure authoritative data
+                            await loadMatches()
                             toast({ title: 'จับคู่สำเร็จ', description: `งาน ${selectedJob.title} ถูกจับคู่กับผู้ให้บริการแล้ว` })
                             setMatchReason('')
                             setIsJobOpen(false)
