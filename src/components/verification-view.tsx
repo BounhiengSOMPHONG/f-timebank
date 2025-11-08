@@ -21,7 +21,7 @@ type VerificationEntry = {
   national_id?: string
   dob?: string
   household?: string
-  skills?: string[]
+  skills?: Array<string | { id: number; name: string }>
   status?: "verified" | "pending" | "rejected" | string
   lat?: number
   lon?: number
@@ -311,7 +311,17 @@ export function VerificationView() {
                 <div><strong>national_id</strong><div>{detailEntry.national_id ?? "-"}</div></div>
                 <div><strong>dob</strong><div>{formatISODate(detailEntry.dob)}</div></div>
                 <div><strong>household</strong><div>{detailEntry.household ?? "-"}</div></div>
-                <div><strong>skills</strong><div>{detailEntry.skills ? detailEntry.skills.join(", ") : "-"}</div></div>
+                <div>
+                  <strong>skills</strong>
+                  <div>
+                    {detailEntry.skills
+                      ? detailEntry.skills
+                          .map((s) => (typeof s === "string" ? s : (s as any)?.name ?? ""))
+                          .filter(Boolean)
+                          .join(", ")
+                      : "-"}
+                  </div>
+                </div>
                 <div><strong>status</strong><div>{detailEntry.status}</div></div>
                 <div><strong>lat, lon</strong><div>{detailEntry.lat ?? "-"}, {detailEntry.lon ?? "-"}</div></div>
                 <div><strong>created_at</strong><div>{formatDate(detailEntry.created_at)}</div></div>
@@ -409,9 +419,15 @@ export function VerificationView() {
                       <TableCell className="text-sm">{entry.household ?? "-"}</TableCell>
                       <TableCell className="text-sm">
                         {entry.skills && entry.skills.length > 0 ? (
-                          entry.skills.map((s, idx) => (
-                            <Badge key={idx} className="mr-1">{s}</Badge>
-                          ))
+                          entry.skills.map((s, idx) => {
+                            const label = typeof s === "string" ? s : (s as any)?.name ?? "-"
+                            const key = typeof s === "object" && (s as any)?.id ? (s as any).id : idx
+                            return (
+                              <Badge key={key} className="mr-1">
+                                {label}
+                              </Badge>
+                            )
+                          })
                         ) : (
                           <span className="text-muted-foreground">-</span>
                         )}
