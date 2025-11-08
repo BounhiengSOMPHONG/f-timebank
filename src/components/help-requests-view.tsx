@@ -147,6 +147,10 @@ export function HelpRequestsView() {
   const [selectedSkilledUserId, setSelectedSkilledUserId] = useState<number | null>(null)
   const [isLoadingApps, setIsLoadingApps] = useState(false)
   const [appsError, setAppsError] = useState<string | null>(null)
+  // Debug: raw fetch responses for troubleshooting
+  const [showFetchDebug, setShowFetchDebug] = useState(false)
+  const [rawJobsResponse, setRawJobsResponse] = useState<any | null>(null)
+  const [rawAppsResponse, setRawAppsResponse] = useState<any | null>(null)
 
   useEffect(() => {
     let mounted = true
@@ -177,15 +181,18 @@ export function HelpRequestsView() {
         const jobsData = await jobsRes.json()
         const appsData = await appsRes.json()
 
+        // store raw responses for debug panel
+        if (mounted) {
+          setRawJobsResponse(jobsData)
+          setRawAppsResponse(appsData)
+        }
+
         const fetchedJobs: Job[] = Array.isArray(jobsData.jobs) ? jobsData.jobs : []
         const fetchedApps: Application[] = Array.isArray(appsData.applications) ? appsData.applications : []
 
-        // Filter out jobs that already have applications (by job_id)
-        const appliedJobIds = new Set<number>(fetchedApps.map((a) => a.job_id))
-        const filteredJobs = fetchedJobs.filter((j) => !appliedJobIds.has(j.id))
-
+        // Keep all jobs from the API (do not filter out jobs that already have applications)
         if (mounted) {
-          setJobs(filteredJobs)
+          setJobs(fetchedJobs)
           setApplications(fetchedApps)
         }
       } catch (err: any) {
@@ -208,7 +215,7 @@ export function HelpRequestsView() {
   const filteredRequests = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase()
 
-    return help_requests.filter((request) => {
+    return help_requests.filter((request: HelpRequest) => {
       const matchesSearch =
         !normalizedQuery ||
         request.requester.name.toLowerCase().includes(normalizedQuery) ||
@@ -313,6 +320,8 @@ export function HelpRequestsView() {
           </CardContent>
         </Card>
 
+      {/* Debug fetch responses removed */}
+
         <Card>
           <CardHeader>
             <CardTitle>รายการคำขอทั้งหมด</CardTitle>
@@ -335,6 +344,7 @@ export function HelpRequestsView() {
                     <TableHead>ตำแหน่ง (lat, lon)</TableHead>
                     <TableHead>เครดิต (ชม.)</TableHead>
                     <TableHead>สร้างโดย</TableHead>
+                    <TableHead>เผยแพร่</TableHead>
                     <TableHead>วันที่สร้าง</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -350,6 +360,7 @@ export function HelpRequestsView() {
                       <TableCell>{job.location_lat}, {job.location_lon}</TableCell>
                       <TableCell>{job.time_balance_hours}</TableCell>
                       <TableCell>{job.creator_first_name} {job.creator_last_name} ({job.creator_email})</TableCell>
+                      <TableCell>{job.broadcasted ? 'ใช่' : 'ไม่'}</TableCell>
                       <TableCell>{new Date(job.created_at).toLocaleString()}</TableCell>
                     </TableRow>
                   ))}
@@ -359,59 +370,7 @@ export function HelpRequestsView() {
           </CardContent>
         </Card>
 
-        {/* Applications section below jobs */}
-        <Card>
-          <CardHeader>
-            <CardTitle>รายการใบสมัคร (applications)</CardTitle>
-            <CardDescription>แสดงใบสมัครจาก `/api/jobapp`</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {isLoadingApps ? (
-              <div className="p-4">กำลังโหลดใบสมัคร...</div>
-            ) : appsError ? (
-              <div className="p-4 text-destructive">เกิดข้อผิดพลาด: {appsError}</div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>ID</TableHead>
-                    <TableHead>สถานะ</TableHead>
-                    <TableHead>วันที่สมัคร</TableHead>
-                    <TableHead>Job ID</TableHead>
-                    <TableHead>หัวข้อ</TableHead>
-                    <TableHead>คำอธิบาย</TableHead>
-                    <TableHead>ทักษะ</TableHead>
-                    <TableHead>ตำแหน่ง</TableHead>
-                    <TableHead>นายจ้าง</TableHead>
-                    <TableHead>ติดต่อ</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {applications.map((app) => (
-                    <TableRow key={app.id} className="hover:bg-muted/50 cursor-pointer" onClick={() => { setSelectedApp(app); setIsAppOpen(true); }}>
-                      <TableCell>{app.id}</TableCell>
-                      <TableCell>
-                        <Badge variant={app.status === 'complete' ? 'default' : app.status === 'pending' ? 'outline' : 'destructive'}>
-                          {app.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{new Date(app.applied_at).toLocaleString()}</TableCell>
-                      <TableCell>{app.job_id}</TableCell>
-                      <TableCell>
-                        <button className="text-left underline" onClick={(e) => { e.stopPropagation(); setSelectedApp(app); setIsAppOpen(true); }}>{app.title}</button>
-                      </TableCell>
-                      <TableCell className="max-w-[300px] truncate">{app.description}</TableCell>
-                      <TableCell>{app.required_skills.join(', ')}</TableCell>
-                      <TableCell>{app.location_lat}, {app.location_lon}</TableCell>
-                      <TableCell>{app.employer_name}</TableCell>
-                      <TableCell>{app.employer_email}<br/>{app.employer_phone}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
+        {/* Applications section removed per request */}
       </div>
 
       {/* Job detail dialog */}
