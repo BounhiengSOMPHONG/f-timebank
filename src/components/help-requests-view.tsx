@@ -257,11 +257,49 @@ export function HelpRequestsView() {
         ? localStorage.getItem('accessToken') || (process.env.NEXT_PUBLIC_ADMIN_ACCESS_TOKEN as string | undefined)
         : undefined
       const base = (process.env.NEXT_PUBLIC_API_BASE || process.env.NEXT_PUBLIC_API_URL || '')
-      const url = `${base}/api/admin/jobs/${jobId}/skilled-users`
+      const url = `${base}/api/admin/jobs/${jobId}/applicants`
       const res = await fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : undefined })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
-      setSkilledUsers(Array.isArray(data.users) ? data.users : [])
+
+      const applicants = Array.isArray(data.applicants) ? data.applicants : []
+
+      // find job coordinates to compute distance
+      const job = jobs.find((j) => j.id === jobId)
+
+      const toKm = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+        const toRad = (v: number) => (v * Math.PI) / 180
+        const R = 6371 // km
+        const dLat = toRad(lat2 - lat1)
+        const dLon = toRad(lon2 - lon1)
+        const a =
+          Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+          Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+          Math.sin(dLon / 2) * Math.sin(dLon / 2)
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+        return R * c
+      }
+
+      const users = applicants.map((a: any) => {
+        const lat = typeof a.profile_lat === 'number' ? a.profile_lat : NaN
+        const lon = typeof a.profile_lon === 'number' ? a.profile_lon : NaN
+        const distance = job && typeof job.location_lat === 'number' && typeof job.location_lon === 'number' && !isNaN(lat) && !isNaN(lon)
+          ? toKm(job.location_lat, job.location_lon, lat, lon)
+          : NaN
+
+        return {
+          id: a.user_id,
+          first_name: a.first_name,
+          last_name: a.last_name,
+          email: a.email,
+          skills: Array.isArray(a.profile_skills) ? a.profile_skills.map((s: any) => s.name) : [],
+          current_lat: lat,
+          current_lon: lon,
+          distance_km: distance,
+        } as SkilledUser
+      })
+
+      setSkilledUsers(users)
     } catch (err) {
       setSkilledUsers([])
     } finally {
