@@ -140,6 +140,7 @@ export function HelpRequestsView() {
   const [selectedJob, setSelectedJob] = useState<Job | null>(null)
   const [isJobOpen, setIsJobOpen] = useState(false)
   const [isMatching, setIsMatching] = useState(false)
+  const [matchReason, setMatchReason] = useState<string>('')
   const [selectedApp, setSelectedApp] = useState<Application | null>(null)
   const [isAppOpen, setIsAppOpen] = useState(false)
   const [skilledUsers, setSkilledUsers] = useState<SkilledUser[]>([])
@@ -461,6 +462,18 @@ export function HelpRequestsView() {
                   </div>
                 </motion.div>
                 <motion.div variants={itemVariants}>
+                  <div className="mt-3">
+                    <label className="block text-sm font-medium mb-1">เหตุผลในการจับคู่ (ไม่บังคับ)</label>
+                    <textarea
+                      value={matchReason}
+                      onChange={(e) => setMatchReason(e.target.value)}
+                      placeholder="ใส่เหตุผลหรือหมายเหตุสำหรับการจับคู่..."
+                      rows={3}
+                      className="w-full rounded-md border p-2 text-sm"
+                    />
+                  </div>
+                </motion.div>
+                <motion.div variants={itemVariants}>
                     <DialogFooter>
                       <Button
                         variant="default"
@@ -477,7 +490,7 @@ export function HelpRequestsView() {
                             const body = {
                               job_id: selectedJob.id,
                               user_id: selectedSkilledUserId,
-                              reason: 'Matched from admin UI'
+                              reason: matchReason || 'Matched from admin UI'
                             }
                             const res = await fetch(url, {
                               method: 'POST',
@@ -491,6 +504,7 @@ export function HelpRequestsView() {
                             // remove matched job from list
                             setJobs((prev) => prev.filter((j) => j.id !== selectedJob.id))
                             toast({ title: 'จับคู่สำเร็จ', description: `งาน ${selectedJob.title} ถูกจับคู่กับผู้ให้บริการแล้ว` })
+                            setMatchReason('')
                             setIsJobOpen(false)
                             setSelectedJob(null)
                           } catch (err: any) {
