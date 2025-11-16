@@ -11,8 +11,8 @@ import { useToast } from "@/hooks/use-toast"
 export default function LoginPage() {
   const router = useRouter()
   const { toast } = useToast()
-  const [email, setEmail] = useState('unik09john@gmail.com')    // ไม่ใช้ null
-  const [password, setPassword] = useState('secret123')
+  const [email, setEmail] = useState('')    // ไม่ใช้ null
+  const [password, setPassword] = useState('')
   const [remember, setRemember] = useState(false)
   const [error, setError] = useState('')
 
