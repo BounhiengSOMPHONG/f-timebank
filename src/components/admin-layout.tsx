@@ -3,11 +3,13 @@
 import type { ReactNode } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Clock, Users, HelpCircle, LinkIcon, CreditCard, Database, BarChart3, Bell, ShieldCheck, Layers } from "lucide-react"
+import { Clock, Users, HelpCircle, LinkIcon, CreditCard, Database, BarChart3, ShieldCheck, Layers } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { useRouter } from 'next/navigation'
+import dynamic from "next/dynamic"
+const NotificationDropdown = dynamic(() => import("@/components/notification-dropdown"), { ssr: false })
 
 interface AdminLayoutProps {
   children: ReactNode
@@ -91,12 +93,9 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-border bg-card px-6">
           <div className="text-sm text-muted-foreground">ระบบจัดการ Time Bank</div>
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" className="relative">
-              <Bell className="h-5 w-5" />
-              <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] text-destructive-foreground">
-                3
-              </span>
-            </Button>
+            {/* Notification dropdown */}
+            {/* replaced static bell with dynamic dropdown */}
+            <NotificationDropdown />
             <Avatar>
               <AvatarFallback className="bg-primary text-primary-foreground">A</AvatarFallback>
             </Avatar>
